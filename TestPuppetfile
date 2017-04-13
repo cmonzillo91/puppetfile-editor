@@ -1,6 +1,6 @@
 mod 'hieradata',
-  :git => 'test@github.com.git',
-  :ref => '1.0.0.6'
+	:git => 'test@github.com.git'
+	:ref => '1.0.1.1'
 mod 'test_module',
-  :git => 'test@github.com.git',
-  :ref => '1.0.0.10'
+	:git => 'test@github.com.git'
+	:ref => '1.0.0.10'

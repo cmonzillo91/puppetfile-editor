@@ -8,9 +8,23 @@ import (
 	"strings"
 )
 
+// PuppetParse is used to Write and Read a Puppetfile
 type PuppetParse struct{}
 
-// ReadModules reads all of the modules as they are definied in puppet
+// WriteModules takes a list of Puppetfile module definitions and writes
+// them to the given io.Writer
+func (p PuppetParse) WriteModules(w io.Writer, modules []*Module) error {
+	writer := bufio.NewWriter(w)
+	for _, mod := range modules {
+		if _, err := writer.WriteString(mod.String()); err != nil {
+			return err
+		}
+	}
+	return writer.Flush()
+}
+
+// ReadModules reads all of the modules as they are defined in puppet from
+// an io.Reader
 func (p PuppetParse) ReadModules(r io.Reader) ([]*Module, error) {
 	reader := bufio.NewReader(r)
 	var modules []*Module
@@ -35,7 +49,7 @@ func (p PuppetParse) ReadModules(r io.Reader) ([]*Module, error) {
 			// Versioned Module
 			if len(parts) == 2 && strings.TrimSpace(parts[1]) != "" {
 				// Get Version
-				currentModule.Version, err = p.extractText(parts[1])
+				currentModule.Version, err = p.parseValueText(parts[1])
 				if err != nil {
 					return nil, err
 				}
@@ -53,18 +67,21 @@ func (p PuppetParse) ReadModules(r io.Reader) ([]*Module, error) {
 			if err != nil {
 				return nil, err
 			}
-			value, err := p.extractText(parts[1])
+			value, err := p.parseValueText(parts[1])
 			if err != nil {
 				return nil, err
 			}
-			currentModule.properties[KEYWORD(label)] = value
+			currentModule.SetProperty(KEYWORD(label), value)
 
 		}
 	}
 	return modules, nil
 }
 
-func (p PuppetParse) extractText(s string) (string, error) {
+// parseValueText is used to attempt to extract text from a puppet file variable value. It
+// first tries to pull quoted text from the string and if the text does not exist, it will
+// attempt to determine if a keyword was used as a value.
+func (p PuppetParse) parseValueText(s string) (string, error) {
 	result, err := p.parseQuotedText(s)
 	if err != nil {
 		result, err = p.parseAndValidateKeywordText(s)
@@ -73,6 +90,8 @@ func (p PuppetParse) extractText(s string) (string, error) {
 
 }
 
+// parseQuotedText attempts to parse the value of a puppet file property that
+// is a string
 func (p PuppetParse) parseQuotedText(s string) (string, error) {
 	start := strings.Index(s, "'")
 	end := strings.LastIndex(s, "'")
@@ -83,6 +102,8 @@ func (p PuppetParse) parseQuotedText(s string) (string, error) {
 
 }
 
+// parseAndValidateKeywordText attempts to parse a keyword from the puppet file
+// and returns an error if the keyword is not supported.
 func (p PuppetParse) parseAndValidateKeywordText(s string) (string, error) {
 	keyword := ""
 	start := strings.Index(s, ":")
